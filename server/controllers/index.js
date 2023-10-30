@@ -3,6 +3,7 @@ const models = require('../models');
 
 // get the Cat model
 const { Cat } = models;
+const { Dog } = models;
 
 // default fake data so that we have something to work with until we make a real Cat
 const defaultData = {
@@ -25,6 +26,15 @@ const hostIndex = (req, res) => {
   });
 };
 
+const hostPage4 = async (req, res) => {
+  try {
+    const docs = await Dog.find({}).lean().exec();
+    return res.render('page4', { dogs: docs });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ error: 'failed to find cats' });
+  }
+};
 // Function for rendering the page1 template
 // Page1 has a loop that iterates over an array of cats
 const hostPage1 = async (req, res) => {
@@ -84,14 +94,40 @@ const hostPage3 = (req, res) => {
 };
 
 // Get name will return the name of the last added cat.
-const getName = (req, res) => res.json({ name: lastAdded.name });
+const getCatName = (req, res) => res.json({ name: lastAdded.name });
+
+const setDogName = async (req, res) => {
+  if (!req.body.name || !req.body.breed || !req.body.age) {
+    return res.status(400).json({ error: 'name, breed and age are all required' });
+  }
+
+  const dogData = {
+    name: `${req.body.name}`,
+    breed: `${req.body.breed}`,
+    age: req.body.age,
+  };
+
+  const newDog = new Dog(dogData);
+  try {
+    await newDog.save();
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ error: 'failed to create dog' });
+  }
+  return res.json({
+    name: dogData.name,
+    breed: dogData.breed,
+    age: dogData.age,
+  });
+};
 
 // Function to create a new cat in the database
-const setName = async (req, res) => {
+const setCatName = async (req, res) => {
   /* If we look at views/page2.handlebars, the form has inputs for a firstname, lastname
      and a number of beds. When this POST request is sent to us, the bodyParser plugin
      we configured in app.js will store that information in req.body for us.
   */
+
   if (!req.body.firstname || !req.body.lastname || !req.body.beds) {
     // If they are missing data, send back an error.
     return res.status(400).json({ error: 'firstname, lastname and beds are all required' });
@@ -150,8 +186,25 @@ const setName = async (req, res) => {
   });
 };
 
+const searchDogName = async (req, res) => {
+  if (!req.query.name) {
+    return res.status(400).json({ error: 'Name is required to perform a search' });
+  }
+
+  try {
+    const doc = await Dog.findOneAndUpdate({ name: req.query.name }, { $inc: { age: 1 } });
+    if (!doc) {
+      return res.json({ error: `No dogs by the name of ${req.query.name} found` });
+    }
+    return res.json({ name: doc.name, beds: doc.age });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ error: 'Something went wrong' });
+  }
+};
+
 // Function to handle searching a cat by name.
-const searchName = async (req, res) => {
+const searchCatName = async (req, res) => {
   /* When the user makes a POST request, bodyParser populates req.body with the parameters
      as we saw in setName() above. In the case of searchName, the user is making a GET request.
      GET requests do not have a body, but they can have query parameters. bodyParser will also
@@ -247,9 +300,12 @@ module.exports = {
   page1: hostPage1,
   page2: hostPage2,
   page3: hostPage3,
-  getName,
-  setName,
+  page4: hostPage4,
+  getCatName,
+  setCatName,
   updateLast,
-  searchName,
+  searchCatName,
+  setDogName,
+  searchDogName,
   notFound,
 };
